@@ -127,7 +127,7 @@ python signalAroundPeaks-nano.py inputfilename chrFieldID posField strandField r
         use the [-bismark.cov] option if you want to use the script for a Bismark bedcov output file
 ```
 
-**9. Making single molecule plots over a region**
+**9. Making single molecule plots**
 
 Single-molecule plots can be generated over a list of regions (one plot per region will be generated) using the `SMAC-footprints-from-methylation-reads-tsv-tabix.py` and `SMAC-footprints-from-methylation-reads-tsv-tabix-kmeans.py` scripts. The first script will apply hierarchical clustering while the second one will use k-means. The commands are otherwise the same. There is a wide variety of options regarding display, subsampling, etc.:
 
@@ -154,8 +154,43 @@ AAD6.TSS-600bp.bed 0 1 2 3 tabix AAD6.TSS-600bp.binary-0.5-gist_heat.2019_01_16_
 
 There are  also analogous scripts, `SMAC-footprints-from-methylation-reads-tsv-tabix-all-sites.py`  and `SMAC-footprints-from-methylation-reads-tsv-tabix-kmeans-all-sites.py` that will create single-molecule plots combining reads covering multiple regions. 
 
-**10. **
-**11. **
-**12. **
-**13. **
-**14. **
+**10. Calculating single-molecule correlations**
+
+To estimate coaccessibility between all pairs of regions (with sufficient coverage), use the `SingleMoleculeCorrelation-empirical-quantiles.py` script:
+
+```
+python SingleMoleculeCorrelation-empirical-quantiles.py methylation_reads_all.tsv peaks chrFieldID leftFiled RightFieldID
+minCoverage maxDist N_samplings tabix_location outfile [-subsample N] [-quantiles N]
+```
+
+Example:
+
+```
+python SingleMoleculeCorrelation-empirical-quantiles.py 
+20180515_Yeast_Run-tombo_denovo_1.3.reads.filtered_1kb_0.75.tsv.bgz
+Saccharomyces_cerevisiae.SacCer_Apr2011.20.TSS-100bp.bed 0 1 2 100 20000 1000 tabix 
+SMCorrEQ.20180515_Yeast_Run-tombo_denovo_1.3.reads.filtered_1kb_0.75.TSS-100bp.q5.ss50 
+-quantiles 5 -subsample 50
+```
+
+**11. Calculating NMI matrices**
+
+To calculate NMI matrices, the `SingleMoleculeCorrelation-NMI-matrix.py` script is used. 
+
+```
+python SingleMoleculeCorrelation-NMI-matrix.py methylation_reads_all.tsv region.bed
+chrFieldID leftField rightFieldID minCoverage windowsize stepsize tabix_location outfileprefix 
+[-subsample N] [-expectedMaxDist bp] [-label fieldID]
+```
+
+Example:
+
+```
+python SingleMoleculeCorrelation-NMI-matrix.py 
+2018_07_05_Diamide_0min.all.BI_w10_a10_b10.reads.filtered_1kb_0.75.tsv.bgz 
+CTT1.TSS-600bp.bed 0 1 2 50 1 1200 tabix 
+NMI.min50cov.1bp.TIF-seq-updated.CTT1.TSS-600bp.2018-07-05_Diamide_0min -expectedMaxDist 1500
+```
+
+If running genome, split the genome into overlapping bins for paralellization efficiency, e.g. 50-kbp in size with a 10-kbp stride, and calculate a separate matrix for each, then take the average NMI values for each pair of coordinates for downstream analyses. 
+
