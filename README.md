@@ -6,8 +6,9 @@ Run the `TomboSingleReadsExtract-tombo_de_novo.py` (for Tombo versions prior to 
 
 ```
 python TomboSingleReadsExtract-tombo_de_novo-1.5.py tombo.per_read_stats genome.fa outfile_prefix 
-[-m5C-only] [-m6A-only] [-CG-only] [-CG-CG-only] [-GC-only] [-m6A-CG-only] [-m6A-GC-only] [-m6A-GC-CG-only] 
-[-doT] [-T-only] [-generic bases(comma-separated)] [-excludeContext string(,string2,string3,...,stringN) radius]
+[-m5C-only] [-m6A-only] [-CG-only] [-CG-CG-only] [-GC-only] [-m6A-CG-only] [-m6A-GC-only] 
+[-m6A-GC-CG-only] [-doT] [-T-only] [-generic bases(comma-separated)]
+[-excludeContext string(,string2,string3,...,stringN) radius]
 [-excludeChr chr1[,chr2,...,chrN]] [-chrPrefix string]
 ```
 
@@ -36,7 +37,7 @@ tabix -s 1 -b 2 -e 3 merged.m6A-only.reads.tsv.bgz
 **3. Calculate mapping statistics**
 
 ```
-python NanoporeTSVMappingStats.py merged.m6A-only.reads.tsv.bgz NanoporeTSVMappingStats-merged.m6A-only &
+python NanoporeTSVMappingStats.py merged.m6A-only.reads.tsv.bgz NanoporeTSVMappingStats-merged.m6A-only
 ```
 
 **4. Create coverage file**
@@ -44,11 +45,117 @@ python NanoporeTSVMappingStats.py merged.m6A-only.reads.tsv.bgz NanoporeTSVMappi
 Use the `methylation-reads-tsv-to_coverage.py` script to create a coverage file. 
 
 ```
-python methylation_reads_all.tsv threshold outfile [-stranded +|-] [-minAbsLogLike float] [-minAbsPValue float] [-BayesianIntegration window(bp) step alpha beta pseudosamplesize] [-N6mAweight pseudosamplesize genome.fa] [-saveNewSingleMoleculeFile filename]
+python methylation_reads_all.tsv threshold outfile 
+[-stranded +|-] [-minAbsLogLike float] [-minAbsPValue float]
+[-BayesianIntegration window(bp) step alpha beta pseudosamplesize] 
+[-N6mAweight pseudosamplesize genome.fa] [-saveNewSingleMoleculeFile filename]
 ```
 
 Example, using 0.5 as the threshold:
 
 ```
-python methylation-reads-tsv-to_coverage.py merged.m6A-only.reads.tsv.bgz 0.5 merged.m6A-only.cutoff_0.5.coverage &
+python methylation-reads-tsv-to_coverage.py merged.m6A-only.reads.tsv.bgz 0.5 merged.m6A-only.cutoff_0.5.coverage
 ```
+
+Convert to a `.bgz` file:
+
+```
+cat merged.m6A-only.cutoff_0.5.coverage | bgzip > merged.m6A-only.cutoff_0.5.coverage.bgz
+```
+
+and `tabix`-index:
+
+```
+tabix -s 1 -b 2 -e 3 merged.m6A-only.cutoff_0.5.coverage.bgz
+```
+
+**5. Bayseian integration**
+
+The bayseian integration calculation is also carried out using the `methylation-reads-tsv-to_coverage.py` script. For efficiency of calculation, compute it on the individual converted tombo files, as follows (for a 10-bp context and (10,10) prior):
+
+```
+python methylation-reads-tsv-to_coverage.py 0.tombo.m6A-only 0.5 
+0.tombo.m6A-only.all0.min_p_val0.4.cutoff_0.5.coverage.BI_w10_a10_b10 
+-minAbsPValue 0.4 -BayesianIntegration 10 1 10 10 50 
+-saveNewSingleMoleculeFile 0.tombo.m6A-only.BI_w10_a10_b10.reads.tsv
+```
+
+Merge the files:
+
+```
+cat *tombo.m6A-only.BI_w10_a10_b10.reads.tsv | sort -k1,1 -k2,2n -k3,3n | 
+bgzip > merged.BI_w10_a10_b10.reads.tsv.bgz
+```
+
+Then `tabix`-index:
+
+```
+tabix -s 1 -b 2 -e 3 merged.BI_w10_a10_b10.reads.tsv.bgz
+```
+
+**6. Filtering fully methylated reads**
+
+This operation can be done using the `filterFullyMethylatedReads.py` script:
+
+```
+python filterFullyMethylatedReads.py methylation_reads_all.tsv WindowSize minFraction 
+[-keepShort] [-missingBasesFilter genome.fa basecontexts(comma-separated) minFraction [-doMBFSet]]
+```
+
+**7. Create genome browser tracks**
+
+```
+python coverage_to_wig.py coverage.bgz window step chrField MfieldID UfieldID chrom.sizes outprefix [-minCov N_reads]
+```
+
+Where the `M` and the `U` fields indicate the column IDs of the numbers of methyllated and unmethylated reads, respectively, and the `window` and `step` parameters specify the width and the stride of the averaging. 
+
+This script will output two `bedGraph` files -- a `coverage.wig` (which contains the number of reads covering a position) and a `meth.wig` one (which contains the fraction of methylated reads). These can then be converted into `bigWig` files that can in turn be displayed on a genome browser.
+
+**8. Making metaplots around a position**
+
+The `coverage.bgz` can be used to make metaplots around a set of positions, as follows, with a variety of parameters (window size, minimal coverage, etc.):
+
+```
+python signalAroundPeaks-nano.py inputfilename chrFieldID posField strandField radius window coverage.bgz outputfilename 
+[-bismark.cov] [-bed] [-minCov N] [-unstranded] [-ERANGE_hts] [-narrowPeak] [-first number]
+        Input format: <fields .. tabs> chr <tab> position <tab> strandField
+        This script outputs the average signal over all regions within the given radius
+        if the the -bed option is used, the middle point of a bed region will be used; specifiy the posField as the left coordinate of the region
+        if the the -narrowPeak option is used, the posField will be ignored and strand will be assumed to be +
+        Note: the script will normalize only against the number of windows that have a CpG ot other signal in the methylation file
+        use the [-bismark.cov] option if you want to use the script for a Bismark bedcov output file
+```
+
+**9. Making single molecule plots over a region**
+
+Single-molecule plots can be generated over a list of regions (one plot per region will be generated) using the `SMAC-footprints-from-methylation-reads-tsv-tabix.py` and `SMAC-footprints-from-methylation-reads-tsv-tabix-kmeans.py` scripts. The first script will apply hierarchical clustering while the second one will use k-means. The commands are otherwise the same. There is a wide variety of options regarding display, subsampling, etc.:
+
+```
+python methylation_reads_all.tsv peak_list chrFieldID leftFieldID rightFieldID strandFieldID tabix_path outfile_prefix 
+[-resize factor] [-subset N] [-label fieldID] [-minCov fraction]
+[-minPassingBases fraction] [-minReads N] [-unstranded] [-minAbsLogLike float]
+[-scatterPlot colorscheme minScore maxScore color|none] [-window bp] [-readStrand +|-] 
+[-printMatrix] [-deleteMatrix] [-binarize threshold]' 
+        Use the [-subset] option if you want only N of the fragments; the script will pick the N fragments best covering each region, and will discard regions with fewer than N covering fragments
+        Use the [-label] option if you want regions to be labeled with something other than their coordinates'
+        The [-heatmap] option will generate png heatmaps instead of text file matrices'
+        The [-minCov] option will remove all fragments that cover the region at less than the specified fraction'
+```
+
+Example:
+
+```
+python SMAC-footprints-from-methylation-reads-tsv-tabix-kmeans.py 
+2019_01_16_60min_Diamide-rep2.all.BI_w10_a10_b10.reads.filtered_1kb_0.75.tsv.bgz 
+AAD6.TSS-600bp.bed 0 1 2 3 tabix AAD6.TSS-600bp.binary-0.5-gist_heat.2019_01_16_60min_Diamide-rep2.BI.filt.10bp.resize0.5
+-window 10 -minCov 1 -deleteMatrix -binarize 0.5 -scatterPlot gist_heat 0 1.1 w -resize 0.5 -unstranded
+```
+
+There are  also analogous scripts, `SMAC-footprints-from-methylation-reads-tsv-tabix-all-sites.py`  and `SMAC-footprints-from-methylation-reads-tsv-tabix-kmeans-all-sites.py` that will create single-molecule plots combining reads covering multiple regions. 
+
+**10. **
+**11. **
+**12. **
+**13. **
+**14. **
