@@ -2,7 +2,7 @@
 
 **1. Tombo extraction** 
 
-Run the `TomboSingleReadsExtract-tombo_de_novo.py` (for Tombo versions prior to 1.5) or the `TomboSingleReadsExtract-tombo_de_novo-1.5.py` (for Tombo version 1.5) scripts in order to convert Tombo per_read_stats files into text files. The script has multiple options for different sequence contexts, excluding certain sequence contexts, etc.:
+Run the `TomboSingleReadsExtract-tombo_de_novo.py` (for Tombo versions prior to 1.5) or the `TomboSingleReadsExtract-tombo_de_novo-1.5.py` (for Tombo version 1.5) scripts in order to convert Tombo `per_read_stats` files into text files. The script has multiple options for different sequence contexts, excluding certain sequence contexts, etc.:
 
 ```
 python TomboSingleReadsExtract-tombo_de_novo-1.5.py tombo.per_read_stats genome.fa outfile_prefix 
@@ -63,7 +63,7 @@ Convert to a `.bgz` file:
 cat merged.m6A-only.cutoff_0.5.coverage | bgzip > merged.m6A-only.cutoff_0.5.coverage.bgz
 ```
 
-and `tabix`-index:
+Then `tabix`-index:
 
 ```
 tabix -s 1 -b 2 -e 3 merged.m6A-only.cutoff_0.5.coverage.bgz
@@ -71,7 +71,7 @@ tabix -s 1 -b 2 -e 3 merged.m6A-only.cutoff_0.5.coverage.bgz
 
 **5. Bayseian integration**
 
-The bayseian integration calculation is also carried out using the `methylation-reads-tsv-to_coverage.py` script. For efficiency of calculation, compute it on the individual converted tombo files, as follows (for a 10-bp context and (10,10) prior):
+The Bayseian integration calculation is also carried out using the `methylation-reads-tsv-to_coverage.py` script. For efficiency of calculation, compute it on the individual converted tombo files, as follows (for a 10-bp context and (10,10) prior):
 
 ```
 python methylation-reads-tsv-to_coverage.py 0.tombo.m6A-only 0.5 
@@ -110,7 +110,7 @@ python coverage_to_wig.py coverage.bgz window step chrField MfieldID UfieldID ch
 
 Where the `M` and the `U` fields indicate the column IDs of the numbers of methyllated and unmethylated reads, respectively, and the `window` and `step` parameters specify the width and the stride of the averaging. 
 
-This script will output two `bedGraph` files -- a `coverage.wig` (which contains the number of reads covering a position) and a `meth.wig` one (which contains the fraction of methylated reads). These can then be converted into `bigWig` files that can in turn be displayed on a genome browser.
+This script will output two `bedGraph` files -- a `coverage.wig` one (which contains the number of reads covering a position) and a `meth.wig` one (which contains the fraction of methylated reads). These can then be converted into `bigWig` files that can in turn be displayed on a genome browser.
 
 **8. Making metaplots around a position**
 
@@ -175,7 +175,7 @@ SMCorrEQ.20180515_Yeast_Run-tombo_denovo_1.3.reads.filtered_1kb_0.75.TSS-100bp.q
 
 **11. Calculating NMI matrices**
 
-To calculate NMI matrices, the `SingleMoleculeCorrelation-NMI-matrix.py` script is used. 
+To calculate NMI matrices, the `SingleMoleculeCorrelation-NMI-matrix.py` script can be used. 
 
 ```
 python SingleMoleculeCorrelation-NMI-matrix.py methylation_reads_all.tsv region.bed
@@ -192,5 +192,5 @@ CTT1.TSS-600bp.bed 0 1 2 50 1 1200 tabix
 NMI.min50cov.1bp.TIF-seq-updated.CTT1.TSS-600bp.2018-07-05_Diamide_0min -expectedMaxDist 1500
 ```
 
-If running genome, split the genome into overlapping bins for paralellization efficiency, e.g. 50-kbp in size with a 10-kbp stride, and calculate a separate matrix for each, then take the average NMI values for each pair of coordinates for downstream analyses. 
+If running genome-wide, split the genome into overlapping bins for paralellization efficiency, e.g. 50-kbp in size with a 10-kbp stride, and calculate a separate matrix for each, then take the average NMI values for each pair of coordinates for downstream analyses. 
 
